@@ -43,12 +43,13 @@ flutter build apk --release
 
 ## 测试
 
+测试用例不随仓库发布（沿用上游策略：测试留在开发树）。本地调试书源引擎时可以直接跑：
+
 ```bash
-flutter test                              # 单元与规则引擎测试
-flutter test test/legado_e2e_test.dart    # 书源端到端
+flutter test test/legado_e2e_test.dart
 ```
 
-书源端到端测试会读 `../legado-sources/source.json`，这个文件不在仓库里——没有它时相关用例跳过。
+这些用例会读 `../legado-sources/source.json` 里的书源集合，需要自备。
 
 ## 许可
 
