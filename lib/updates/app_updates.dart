@@ -14,7 +14,7 @@ export 'current_release_content.dart'
 
 /// 本二开版本不跟进上游发布：上游包与本版本的包名、签名都不同，提示更新只会
 /// 引导用户下载一个装不上的包。留空即关闭全部更新检查与项目页入口。
-const officialUpdateRepository = '';
+const officialUpdateRepository = 'DTYVI22/yunqi-reader';
 const updateMirrorOrigin = 'https://git.3952039.xyz';
 const updateRepository = String.fromEnvironment(
   'UPDATE_REPOSITORY',
@@ -630,7 +630,8 @@ class AppUpdates extends ChangeNotifier {
     mirror: _mirrorSource,
     original: _githubSource,
   );
-  bool get _usesMirror => updateRepository == officialUpdateRepository;
+  /// 上游的 updateMirrorOrigin 是作者自建镜像，与本品无关；恒为 false 走 GitHub。
+  bool get _usesMirror => false;
   Uri get projectPage => _usesMirror
       ? Uri.parse(updateMirrorOrigin)
       : Uri.https('github.com', '/$updateRepository');
