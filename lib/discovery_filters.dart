@@ -5,17 +5,19 @@ import 'app_ui.dart';
 import 'app_search_field.dart';
 import 'catalog.dart';
 import 'book_tag_catalog.dart';
+import 'explore_catalog.dart';
 import 'glass_choices.dart';
 import 'tag_catalogue.dart';
 import 'publication_catalog.dart';
 
-/// The selected discovery source. Publication, ranking and tags are mutually
-/// exclusive; a publication's service cannot apply ranking or tag parameters.
+/// The selected discovery source. Publication, ranking, tags and a book-source
+/// category are mutually exclusive: each one replaces the feed's query scope.
 class DiscoverySelection {
-  const DiscoverySelection({this.sort, this.tags, this.publication});
+  const DiscoverySelection({this.sort, this.tags, this.publication, this.explore});
   final NovelSort? sort;
   final Set<String>? tags;
   final PublicationLibrary? publication;
+  final ExploreTarget? explore;
 }
 
 class DiscoveryFilters extends StatefulWidget {
@@ -31,6 +33,8 @@ class DiscoveryFilters extends StatefulWidget {
     this.publicationCatalog,
     this.selectedPublication,
     this.preparePublications,
+    this.exploreLoader,
+    this.selectedExplore,
   });
   final NovelSort sort;
   final List<Novel> books;
@@ -42,6 +46,10 @@ class DiscoveryFilters extends StatefulWidget {
   final PublicationCatalog? publicationCatalog;
   final PublicationLibrary? selectedPublication;
   final Future<void> Function()? preparePublications;
+
+  /// 拉取「书源发现分类」。为空表示当前仓库不支持分类（legacy 文库里没有）。
+  final Future<List<ExploreSource>> Function()? exploreLoader;
+  final ExploreTarget? selectedExplore;
   @override
   State<DiscoveryFilters> createState() => _DiscoveryFiltersState();
 }
@@ -50,6 +58,9 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
   late String mode =
       widget.editingBlockedTags && widget.onBlockedTagsChanged != null
       ? 'blocked'
+      : widget.exploreLoader != null
+      // 有书源发现能力时，「分类」比「文库里那 13 个榜单」有意义得多，直接进去
+      ? 'explore'
       : widget.selectedPublication != null && widget.publicationCatalog != null
       ? 'publication'
       : widget.selectedTags.isEmpty
@@ -63,6 +74,10 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
   List<PublicationLibrary>? _publications;
   bool _loadingPublications = false;
   String? _publicationError;
+  List<ExploreSource>? _exploreSources;
+  bool _loadingExplores = false;
+  String? _exploreError;
+  String? _activeSourceKey;
   Set<String> get _editing => mode == 'blocked' ? blocked : selected;
   bool _isSelected(String tag) => mode == 'blocked'
       ? blocked.any((value) => _tagKey(value) == _tagKey(tag))
@@ -72,6 +87,8 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
   void initState() {
     super.initState();
     if (mode == 'publication') unawaited(_loadPublications());
+    if (mode == 'explore') unawaited(_loadExplores());
+    _activeSourceKey = widget.selectedExplore?.sourceKey;
   }
 
   Future<void> _loadPublications() async {
@@ -92,6 +109,23 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
       }
     } finally {
       if (mounted) setState(() => _loadingPublications = false);
+    }
+  }
+
+  Future<void> _loadExplores() async {
+    final loader = widget.exploreLoader;
+    if (loader == null || _loadingExplores) return;
+    setState(() {
+      _loadingExplores = true;
+      _exploreError = null;
+    });
+    try {
+      final sources = await loader();
+      if (mounted) setState(() => _exploreSources = sources);
+    } catch (_) {
+      if (mounted) setState(() => _exploreError = '书源分类载入失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _loadingExplores = false);
     }
   }
 
@@ -136,6 +170,145 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
           publication: libraries.firstWhere((library) => library.id == id),
         ),
       ),
+    );
+  }
+
+  /// 书源「发现」：先选源，再选分类。
+  Widget _exploreChoices() {
+    if (_loadingExplores && _exploreSources == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CupertinoActivityIndicator()),
+      );
+    }
+    if (_exploreError case final error?) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            AppText(error),
+            const SizedBox(height: 12),
+            GlassTextButton(
+              key: const ValueKey('discover-explore-retry'),
+              onPressed: _loadExplores,
+              child: const AppText('重新加载'),
+            ),
+          ],
+        ),
+      );
+    }
+    final sources = _exploreSources ?? const <ExploreSource>[];
+    final usable = [
+      for (final source in sources)
+        if (source.hasKinds) source,
+    ];
+    if (usable.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: AppText('当前书源都没有可用的发现分类（exploreUrl 为空或解析失败）。'),
+      );
+    }
+
+    final active = _activeSourceKey == null
+        ? null
+        : usable.where((s) => s.key == _activeSourceKey).firstOrNull;
+
+    if (active == null) {
+      final grouped = <String, List<ExploreSource>>{};
+      for (final source in usable) {
+        grouped.putIfAbsent(source.group.trim().isEmpty ? '未分组' : source.group.trim(), () => []).add(source);
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppText(
+            '共 ${usable.length} 个书源提供发现页',
+            style: const TextStyle(fontSize: 13),
+          ),
+          for (final entry in grouped.entries) ...[
+            const SizedBox(height: 14),
+            AppText(entry.key, style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (index, source) in entry.value.indexed)
+                  GlassTextButton(
+                    key: ValueKey('discover-explore-source-${source.key}-$index'),
+                    compact: true,
+                    selected: source.key == _activeSourceKey,
+                    onPressed: () => setState(() => _activeSourceKey = source.key),
+                    child: AppText(
+                      '${source.name} · ${source.usableCount}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
+    final kinds = active.kinds;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            GlassTextButton(
+              key: const ValueKey('discover-explore-back'),
+              compact: true,
+              onPressed: () => setState(() => _activeSourceKey = null),
+              child: const AppText('换书源'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AppText(
+                '${active.name} · ${active.usableCount} 个分类',
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (index, kind) in kinds.indexed)
+              if (kind.isGroupTitle)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: AppText(kind.title, style: const TextStyle(fontSize: 13)),
+                )
+              else
+                SizedBox(
+                  width: kind.isFullRow ? double.infinity : null,
+                  child: GlassTextButton(
+                    key: ValueKey('discover-explore-kind-${kind.title}-$index'),
+                    compact: true,
+                    selected:
+                        widget.selectedExplore?.sourceKey == active.key &&
+                        widget.selectedExplore?.url == kind.url,
+                    onPressed: () => Navigator.pop<DiscoverySelection>(
+                      context,
+                      DiscoverySelection(
+                        explore: ExploreTarget(
+                          sourceKey: active.key,
+                          sourceName: active.name,
+                          title: kind.title,
+                          url: kind.url!,
+                        ),
+                      ),
+                    ),
+                    child: AppText(kind.title, style: const TextStyle(fontSize: 13)),
+                  ),
+                ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -208,6 +381,7 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
             final order = frequency[b]!.compareTo(frequency[a]!);
             return order == 0 ? a.compareTo(b) : order;
           });
+    final hasExplores = widget.exploreLoader != null;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Column(
@@ -222,7 +396,8 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
             context,
             groupValue: mode,
             children: {
-              'sort': const AppText('榜单'),
+              if (hasExplores) 'explore': const AppText('分类'),
+              if (!hasExplores) 'sort': const AppText('榜单'),
               'tags': const AppText('标签'),
               if (widget.publicationCatalog != null)
                 'publication': const AppText('出版文库'),
@@ -235,10 +410,15 @@ class _DiscoveryFiltersState extends State<DiscoveryFilters> {
               if (value == 'publication' && _publications == null) {
                 unawaited(_loadPublications());
               }
+              if (value == 'explore' && _exploreSources == null) {
+                unawaited(_loadExplores());
+              }
             },
           ),
           const SizedBox(height: 12),
-          if (mode == 'sort')
+          if (mode == 'explore')
+            _exploreChoices()
+          else if (mode == 'sort')
             GlassChoiceGroup<NovelSort?>(
               name: 'discover-sort',
               label: '选择榜单',

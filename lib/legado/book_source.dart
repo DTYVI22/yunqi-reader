@@ -24,7 +24,15 @@ class LegadoBookSource {
     this.group = '',
     this.weight = 0,
     this.enabled = true,
+    this.rawJson = const {},
   });
+
+  /// 书源的原始 JSON。
+  ///
+  /// 引擎（Kotlin）直接吃这份 map：`ruleExplore`、`enabledCookieJar`、
+  /// `loginUrl`、`jsLib`、`concurrentRate` 这些 Dart 侧不解析的字段必须原样保留，
+  /// 否则传给引擎就退化成一个残缺源。
+  final Map<String, dynamic> rawJson;
 
   /// 书源显示名。
   final String name;
@@ -111,8 +119,10 @@ class LegadoBookSource {
   bool get isSupported =>
       enabled && type == 0 && !usesScriptInCore && searchUrl.isNotEmpty;
 
-  /// 导出成 legado 兼容的 JSON，便于备份或转回原阅读器。
+  /// 导出成 legado 兼容的 JSON：以原始 map 为基底，覆盖编辑器可能改过的字段，
+  /// 保证「导入 → 导出 → 再导入」不丢字段（ruleReview / loginUi / eventListener 等）。
   Map<String, Object?> toJson() => {
+    ...rawJson,
     'bookSourceName': name,
     'bookSourceUrl': url,
     'bookSourceType': type,
@@ -134,6 +144,7 @@ class LegadoBookSource {
     final url = json['bookSourceUrl'];
     if (name is! String || url is! String) return null;
     return LegadoBookSource(
+      rawJson: json,
       name: name,
       url: url,
       type: json['bookSourceType'] is int ? json['bookSourceType'] as int : 0,

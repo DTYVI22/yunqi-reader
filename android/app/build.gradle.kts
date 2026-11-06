@@ -87,6 +87,20 @@ android {
             ndk.abiFilters.addAll(targetAbis)
         }
     }
+
+    packaging {
+        resources {
+            // hutool 系 jar 各自带 META-INF/INDEX.LIST，与其它依赖合并时会冲突
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+            )
+        }
+    }
 }
 
 flutter {
@@ -94,10 +108,13 @@ flutter {
 }
 
 dependencies {
+    implementation(project(":legado-engine"))
     implementation("org.apache.poi:poi-scratchpad:5.5.1")
     implementation("com.github.albfernandez:juniversalchardet:2.0.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
-    implementation("org.jsoup:jsoup:1.23.2")
+    // 与 legado-engine 对齐：Archive 的 AnalyzeByJSoup 依赖 1.16.2 的选择器行为
+    // （上游注释：升级会触发破坏性变更，见 jhy/jsoup#2017）。app 自身不直接用 jsoup。
+    implementation("org.jsoup:jsoup:1.16.2")
     implementation("org.commonmark:commonmark:0.30.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     // Keep the media host classes available to the app's shared-engine wiring.

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 
 import 'catalog.dart';
+import 'explore_catalog.dart';
 import 'book_tag_catalog.dart';
 import 'book_search.dart';
 import 'tag_catalogue.dart';
@@ -19,7 +20,10 @@ class NovelFeedController extends ChangeNotifier {
     this.search = false,
     this.groupAllSearch = false,
     this.initialItems = 0,
-  }) : assert(initialItems >= 0);
+    ExploreTarget? initialExplore,
+    this.onExploreChanged,
+  }) : explore = initialExplore,
+       assert(initialItems >= 0);
   final NovelRepository repository;
   final bool search;
 
@@ -62,6 +66,12 @@ class NovelFeedController extends ChangeNotifier {
   int _visibleResultStartIndex = 0;
   int _blockedItemCount = 0;
   NovelSort sort = NovelSort.lastUpdate;
+
+  /// 当前选中的书源发现分类（与 sort / tags / publication 互斥）。
+  ExploreTarget? explore;
+
+  /// 分类变化时通知外部持久化（重启 App 后仍停在上次选的分类）。
+  final void Function(ExploreTarget?)? onExploreChanged;
   PublicationLibrary? _publication;
   PublicationCatalog? _publicationCatalog;
 
@@ -208,8 +218,9 @@ class NovelFeedController extends ChangeNotifier {
       : _load(replace: page == 0 || refreshFailed, force: true);
 
   Future<void> selectSort(NovelSort value) async {
-    if (sort == value && tags.isEmpty && _publication == null) return;
+    if (sort == value && tags.isEmpty && _publication == null && explore == null) return;
     sort = value;
+    explore = null;
     tags = const [];
     _publication = null;
     _publicationCatalog = null;
@@ -219,10 +230,34 @@ class NovelFeedController extends ChangeNotifier {
 
   Future<void> selectTags(Iterable<String> values) async {
     final next = tagSearchTerms(values.join(' '));
-    if (listEquals(tags, next) && _publication == null) return;
+    if (listEquals(tags, next) && _publication == null && explore == null) return;
     tags = List.unmodifiable(next);
+    explore = null;
     _publication = null;
     _publicationCatalog = null;
+    _reset();
+    await _load(replace: true);
+  }
+
+  /// 选中书源「发现」分类：清空榜单/标签/出版文库，按分类重新拉第一页。
+  Future<void> selectExplore(ExploreTarget value) async {
+    if (_disposed || search) return;
+    if (explore == value && tags.isEmpty && _publication == null) return;
+    explore = value;
+    onExploreChanged?.call(value);
+    sort = NovelSort.lastUpdate;
+    tags = const [];
+    _publication = null;
+    _publicationCatalog = null;
+    _reset();
+    await _load(replace: true);
+  }
+
+  /// 回到「各源首页推荐」（未选分类时的占位视图）。
+  Future<void> clearExplore() async {
+    if (_disposed || explore == null) return;
+    explore = null;
+    onExploreChanged?.call(null);
     _reset();
     await _load(replace: true);
   }
@@ -423,6 +458,7 @@ class NovelFeedController extends ChangeNotifier {
                 sort: requestedSort,
                 page: requestedPage,
                 refresh: force,
+                target: explore,
               );
         if (_disposed || generation != _generation) return;
         if (result.page != requestedPage) {

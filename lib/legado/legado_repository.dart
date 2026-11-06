@@ -11,6 +11,7 @@ import 'package:flutter/material.dart' show Color;
 import 'package:html/parser.dart' as html_parser;
 
 import '../catalog.dart';
+import '../explore_catalog.dart';
 import 'book_registry.dart';
 import 'book_source.dart';
 import 'explore.dart';
@@ -294,7 +295,10 @@ class LegadoRepository extends NovelRepository {
     NovelSort sort = NovelSort.lastUpdate,
     int page = 1,
     bool refresh = false,
+    ExploreTarget? target,
   }) async {
+    // 纯 Dart 引擎没有 exploreUrl 能力：选了分类就交给引擎版仓库处理。
+    if (target != null) return NovelPage(items: const [], page: page);
     final active = sources;
     if (active.isEmpty) return NovelPage(items: const [], page: page);
 

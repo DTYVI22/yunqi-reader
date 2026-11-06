@@ -168,6 +168,8 @@ class HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
   late final _catalog = NovelFeedController(
     widget.repository,
     initialItems: 60,
+    initialExplore: widget.state.discoveryExplore,
+    onExploreChanged: (value) => widget.state.setDiscoveryExplore(value),
   );
   late final _searchFeed = NovelFeedController(widget.repository, search: true)
     ..searchField = BookSearchField.title;
@@ -1058,11 +1060,14 @@ class DiscoverPage extends StatelessWidget {
         feed != null &&
             (feed!.tags.isNotEmpty ||
                 feed!.publication != null ||
+                feed!.explore != null ||
                 feed!.sort != NovelSort.lastUpdate)
         ? GlassTextButton(
             key: const ValueKey('discover-return-to-latest'),
-            onPressed: () => feed!.selectSort(NovelSort.lastUpdate),
-            child: const AppText('返回最近更新'),
+            onPressed: () => feed!.explore != null
+                ? feed!.clearExplore()
+                : feed!.selectSort(NovelSort.lastUpdate),
+            child: AppText(feed!.explore != null ? '返回全部' : '返回最近更新'),
           )
         : null;
     Widget body;
@@ -1335,6 +1340,7 @@ class DiscoverPage extends StatelessWidget {
 
   String get _lowerCategory =>
       categoryTitle ??
+      feed?.explore?.title ??
       feed?.publication?.name ??
       (feed?.tags.isNotEmpty == true
           ? feed!.tags.join(' · ')
@@ -1376,6 +1382,8 @@ class DiscoverPage extends StatelessWidget {
         availableTags: feed!.tagSuggestions,
         publicationCatalog: features?.publications,
         selectedPublication: feed!.publication,
+        exploreLoader: () => feed!.repository.exploreSources(),
+        selectedExplore: feed!.explore,
         preparePublications: features?.account.initialize,
         blockedTags: state.blockedTags,
         onBlockedTagsChanged: (tags) async {
@@ -1394,6 +1402,7 @@ class DiscoverPage extends StatelessWidget {
         catalog: features.publications,
       );
     }
+    if (selected.explore case final target?) await feed!.selectExplore(target);
     if (selected.sort case final sort?) await feed!.selectSort(sort);
     if (selected.tags case final tags?) await feed!.selectTags(tags);
   }

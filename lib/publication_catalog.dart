@@ -1,4 +1,5 @@
 import 'catalog.dart';
+import 'explore_catalog.dart';
 
 class PublicationLibrary {
   const PublicationLibrary(this.id, this.name);
@@ -27,7 +28,7 @@ class PublicationNovelRepository extends NovelRepository {
   Future<NovelPage> browse({
     NovelSort sort = NovelSort.lastUpdate,
     int page = 1,
-    bool refresh = false,
+    bool refresh = false,ExploreTarget? target,
   }) => catalog.browsePublication(library.id, page: page, refresh: refresh);
   @override
   Future<Novel?> find(int id) => source.find(id);

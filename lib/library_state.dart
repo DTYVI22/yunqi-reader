@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'catalog.dart';
+import 'explore_catalog.dart';
 import 'book_identity.dart';
 import 'reader_preferences.dart';
 import 'reader_book_style.dart';
@@ -567,6 +568,58 @@ class LibraryState extends ChangeNotifier {
   }
 
   final SharedPreferences _prefs;
+
+  static const _discoveryExploreKey = 'discovery.explore.v1';
+
+  ExploreTarget? _discoveryExplore;
+  bool _discoveryExploreLoaded = false;
+
+  /// 上次在发现页选中的书源分类。重启后自动恢复，避免每次进来都要重新点。
+  ExploreTarget? get discoveryExplore {
+    if (!_discoveryExploreLoaded) {
+      _discoveryExploreLoaded = true;
+      final raw = _prefs.getString(_discoveryExploreKey);
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final map = jsonDecode(raw);
+          if (map is Map) {
+            final url = '${map['url'] ?? ''}';
+            final sourceKey = '${map['sourceKey'] ?? ''}';
+            if (url.isNotEmpty && sourceKey.isNotEmpty) {
+              _discoveryExplore = ExploreTarget(
+                sourceKey: sourceKey,
+                sourceName: '${map['sourceName'] ?? ''}',
+                title: '${map['title'] ?? ''}',
+                url: url,
+              );
+            }
+          }
+        } catch (_) {
+          // 记录损坏就当作没选过
+        }
+      }
+    }
+    return _discoveryExplore;
+  }
+
+  Future<void> setDiscoveryExplore(ExploreTarget? value) async {
+    _discoveryExploreLoaded = true;
+    _discoveryExplore = value;
+    if (value == null) {
+      await _prefs.remove(_discoveryExploreKey);
+    } else {
+      await _prefs.setString(
+        _discoveryExploreKey,
+        jsonEncode({
+          'sourceKey': value.sourceKey,
+          'sourceName': value.sourceName,
+          'title': value.title,
+          'url': value.url,
+        }),
+      );
+    }
+  }
+
 
   // Native codecs preserve the elements, not Dart's generic list type.
   // In particular iOS restores string arrays as List<Object?>.

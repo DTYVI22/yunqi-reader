@@ -11,6 +11,7 @@ import 'novel_feed_controller.dart';
 import 'offline_repository.dart';
 import 'tag_catalogue.dart';
 import 'pages.dart' show NovelRow, FeedRefresh, FeedFooter, openDetail;
+import 'explore_catalog.dart';
 
 class AuthorWorksRepository extends NovelRepository {
   const AuthorWorksRepository(
@@ -29,7 +30,7 @@ class AuthorWorksRepository extends NovelRepository {
   Future<NovelPage> browse({
     NovelSort sort = NovelSort.lastUpdate,
     int page = 1,
-    bool refresh = false,
+    bool refresh = false,ExploreTarget? target,
   }) async {
     if (localOnly) {
       final local = source is OfflineNovelRepository

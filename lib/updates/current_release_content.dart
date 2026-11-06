@@ -24,13 +24,23 @@ const releaseReadingNotice = '**在线内容以各书源站点的开放状态为
 
 const releaseMaintenanceNotice = '当前为个人二次开发版本，按实际需要更新，不承诺发版节奏。';
 
+const _changeEngine =
+    '书源求值切换到「阅读 Archive」原生引擎：@js 脚本、JSONPath、XPath、POST 源、正文分页全部支持，与本机 legado 行为一致。';
+const _changeDiscover =
+    '发现页从「轻小说文库榜单」改为「书源分类」：按书源分组浏览分类，可选源，并记住上次的选择。';
+const _changeContent =
+    '正文按 nextContentUrl 自动合并分页，净化规则独立作用于全文，长章节不再被截断。';
+const _changeManage = '书源管理：从链接或 JSON 导入，逐条启用或禁用；内置源与导入源按地址去重。';
 const _changeSource =
-    '接入开源阅读（legado）书源：搜索、详情、目录、正文全链路打通，支持 POST 书源与分页目录。';
-const _changeManage = '新增「书源」管理页：查看内置书源，从链接或 JSON 导入自己的书源，逐条启用或禁用。';
-const _changeDiscover = '发现页接上书源首页推荐，搜索结果与详情页显示真实封面。';
-const _changeBuild = '补齐上游公开快照缺失的文件，使项目能独立编译运行。';
+    '搜索、详情、目录、正文全链路走引擎，支持 POST 书源、GBK 站点与 JSON 接口源。';
 
-const _changes = [_changeSource, _changeManage, _changeDiscover, _changeBuild];
+const _changes = [
+  _changeEngine,
+  _changeDiscover,
+  _changeContent,
+  _changeManage,
+  _changeSource,
+];
 
 const _androidInstall = '**Android**：直接覆盖安装即可，不要先卸载（卸载会清空书架与书源）。';
 const _backup = '升级或整理存储前，请先备份重要书籍、阅读进度与书源配置。';
@@ -53,10 +63,11 @@ $releaseReadingNotice
 
 ### 这个版本做了什么
 
-- $_changeSource
-- $_changeManage
+- $_changeEngine
 - $_changeDiscover
-- $_changeBuild
+- $_changeContent
+- $_changeManage
+- $_changeSource
 
 ### 后续维护
 

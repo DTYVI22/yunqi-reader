@@ -180,3 +180,14 @@ docs/legado/source-rule.md
 legado-sources/
 assets/legado/sources.json
 # 签名材料
+
+# 真机自检用的样例书源（仅 debug 变体打包，不入库）
+android/app/src/debug/assets/legado_smoke_sources.json
+
+# 本地开发说明与构建缓存，不入库
+/AGENTS.md
+android/.kotlin/
+
+# 引擎单测与 instrumented test 不入库（仓库策略：test 目录不发布）
+android/legado-engine/src/test/
+android/legado-engine/src/androidTest/

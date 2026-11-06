@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'book_search.dart';
+import 'explore_catalog.dart';
 import 'book_navigation.dart';
 export 'book_navigation.dart';
 
@@ -290,6 +291,7 @@ abstract class NovelRepository {
     NovelSort sort = NovelSort.lastUpdate,
     int page = 1,
     bool refresh = false,
+    ExploreTarget? target,
   }) async {
     final books = await list();
     final selected = sort == NovelSort.fullFlag
@@ -297,6 +299,10 @@ abstract class NovelRepository {
         : books;
     return NovelPage.fromItems(selected, page);
   }
+
+  /// 书源「发现」分类树。只有书源型仓库实现；其它仓库返回空表。
+  Future<List<ExploreSource>> exploreSources({bool refresh = false}) async =>
+      const [];
 
   Future<NovelPage> searchPage(
     String query, {

@@ -1,11 +1,13 @@
-/// 书源启动装配：从随包资源读出书源列表，构造可直接使用的 legado 仓库。
+/// 书源启动装配：从随包资源读出书源列表，构造可直接使用的仓库。
 library;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../catalog.dart';
 import '../legacy_cover.dart';
 import 'book_registry.dart';
 import 'legado_client.dart';
+import 'legado_engine_repository.dart';
 import 'legado_repository.dart';
 import 'source_store.dart';
 
@@ -14,8 +16,10 @@ const legadoAssetPath = 'assets/legado/sources.json';
 
 /// 读取书源并构造仓库。资源缺失或全部不可用时返回 null，调用方继续用原有源。
 ///
-/// 这里走 [LegadoSourceStore]，所以用户在设置里禁用的源、导入的源都会生效。
-Future<LegadoRepository?> openLegadoRepository({
+/// 优先用 Android 引擎（Archive 的规则求值 + Rhino，支持 `@js` / JSONPath / XPath /
+/// 正文分页）；引擎不可用（非 Android、通道未注册、Rhino 初始化失败）时回落到
+/// 纯 Dart 引擎，保证至少有「纯 CSS 源」能跑。
+Future<NovelRepository?> openLegadoRepository({
   String assetPath = legadoAssetPath,
 }) async {
   try {
@@ -25,17 +29,22 @@ Future<LegadoRepository?> openLegadoRepository({
 
     final registry = LegadoBookRegistry(preferences: preferences);
     await registry.load();
-    final repository = LegadoRepository(
+
+    final engine = LegadoEngineRepository(
+      sources: () => store.enabled,
+      registry: registry,
+    );
+    final lite = LegadoRepository(
       sources: () => store.enabled,
       registry: registry,
     );
 
-    // 上游把封面加载器抽空了（legacy_cover.dart 里写死 unavailableOnline），
-    // 这里补一个真正能下载的实现。封面地址来自书源规则，实测不需要 Referer。
+    // 封面加载器：Dart 侧统一实现，两个仓库共用。
     final coverClient = LegadoClient(timeout: const Duration(seconds: 10));
     LegacyCover.useRemoteLoader(coverClient.getBytes);
 
-    return repository;
+    if (await engine.isAvailable()) return engine;
+    return lite;
   } catch (_) {
     LegacyCover.useRemoteLoader(null);
     return null;

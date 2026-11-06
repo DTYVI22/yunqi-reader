@@ -13,6 +13,7 @@
     <application
         android:label="${wenkuAppLabel}"
         android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
         android:name=".WenkuApplication"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"

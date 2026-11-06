@@ -13,6 +13,7 @@ import 'reader_content.dart'
     show ReaderContent, readerHasMissingIllustrations, readerIllustrationUrl;
 import 'ui_notifiers.dart';
 import 'tag_catalogue.dart';
+import 'explore_catalog.dart';
 
 enum DownloadPhase {
   queued,
@@ -150,11 +151,15 @@ class OfflineNovelRepository extends FrameChangeNotifier
   @override
   Future<List<Novel>> search(String query) => remote.search(query);
   @override
+  Future<List<ExploreSource>> exploreSources({bool refresh = false}) =>
+      remote.exploreSources(refresh: refresh);
+
+  @override
   Future<NovelPage> browse({
     NovelSort sort = NovelSort.lastUpdate,
     int page = 1,
-    bool refresh = false,
-  }) => remote.browse(sort: sort, page: page, refresh: refresh);
+    bool refresh = false,ExploreTarget? target,
+  }) => remote.browse(sort: sort, page: page, refresh: refresh, target: target);
   @override
   Future<NovelPage> searchPage(
     String query, {

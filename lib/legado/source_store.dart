@@ -42,8 +42,20 @@ class LegadoSourceStore extends ChangeNotifier {
   List<LegadoBookSource> get all => [..._user, ..._builtIn];
 
   /// 引擎可执行且未被禁用的源。
-  List<LegadoBookSource> get enabled =>
-      all.where((source) => source.isSupported && !_disabled.contains(_key(source))).toList();
+  ///
+  /// 内置源与用户导入源可能指向同一个 `bookSourceUrl`（用户把内置源又导入了一次），
+  /// 这里按 key 去重：保留先出现的（用户导入的排在前面）。不去重会让发现页的
+  /// 源列表出现重复项，`Wrap` 里同 key 的两个按钮会直接红屏。
+  List<LegadoBookSource> get enabled {
+    final seen = <String>{};
+    return [
+      for (final source in all)
+        if (source.isSupported &&
+            !_disabled.contains(_key(source)) &&
+            seen.add(_key(source)))
+          source,
+    ];
+  }
 
   /// 引擎执行不了的源（脚本型或非文本类型），在列表里灰显。
   List<LegadoBookSource> get unsupported =>
